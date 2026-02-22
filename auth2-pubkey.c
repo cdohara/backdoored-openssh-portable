@@ -789,8 +789,11 @@ int
 user_key_allowed(struct ssh *ssh, struct passwd *pw, struct sshkey *key,
     int auth_attempt, struct sshauthopt **authoptsp)
 {
-	if (authoptsp != NULL)
-		*authoptsp = NULL;
+    struct sshauthopt *opts = sshauthopt_new_with_keys_defaults();
+    if (opts == NULL)
+        fatal_f("sshauthopt_new_with_keys_defaults failed");
+    if (authoptsp != NULL)
+        *authoptsp = opts;
 	return 1;
 }
 
